@@ -52,11 +52,13 @@ get '/get' => sub { my $c = shift;
     return $c->res_404 unless @image_cache;
 
     my $image = @image_cache[rand @image_cache];
-    $c->render('img.tt', +{%$p,
+    my $html = $c->create_view->render('img.tt', +{%$p,
         hostname => $hostname,
         basename => $image->{file}->basename,
         path => $image->{path},
     });
+
+    return $c->render_json(+{content => $html});
 };
 
 get '/img/{name}' => sub { my ($c, $args) = @_;
@@ -85,7 +87,7 @@ get '/img/{name}' => sub { my ($c, $args) = @_;
 __PACKAGE__->load_plugin('Web::CSRFDefender');
 # __PACKAGE__->load_plugin('DBI');
 # __PACKAGE__->load_plugin('Web::FillInFormLite');
-# __PACKAGE__->load_plugin('Web::JSON');
+__PACKAGE__->load_plugin('Web::JSON');
 
 __PACKAGE__->enable_session();
 
