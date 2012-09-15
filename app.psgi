@@ -6,8 +6,14 @@ use File::Basename;
 use lib File::Spec->catdir(dirname(__FILE__), 'extlib', 'lib', 'perl5');
 use lib File::Spec->catdir(dirname(__FILE__), 'lib');
 use Amon2::Lite;
+use Path::Class;
+use Log::Minimal;
+$Log::Minimal::AUTODUMP = 1;
 
 our $VERSION = '0.01';
+
+my $banner_dir = dir('/Users/delphinus/Dropbox/Documents/banner');
+my %cache;
 
 # put your configuration here
 sub load_config {
@@ -24,9 +30,40 @@ sub load_config {
     }
 }
 
-get '/' => sub {
-    my $c = shift;
-    return $c->render('index.tt');
+get '/get' => sub { my $c = shift;
+    my $p = $c->req->parameters;
+    my ($w, $h, $ts) = @$p{qw!w h ts!};
+    return $c->res_404 unless $w && $h && $ts;
+
+    my $k = "$w-$h";
+    unless ($cache{$k}) {
+        my @tmp;
+        $banner_dir->recurse(callback => sub{
+            my $f = shift;
+            push @tmp, $f if $f =~ qr/${w}_$h\.(?:gif|png)$/;
+        });
+        $cache{$k} = \@tmp;
+    }
+
+    my @image_cache = @{$cache{$k}};
+    return $c->res_404 unless @image_cache;
+
+    my $image = @image_cache[rand @image_cache];
+    my ($ext) = $image =~ /\.([^.]+)$/;
+    my $content = do {
+        my $fh = $image->openr;
+        $fh->binmode;
+        local $/; <$fh>;
+    };
+
+    return $c->create_response(
+        200,
+        [
+            'Content-Type' => "image/$ext",
+            'Content-Length' => -s $image,
+        ],
+        $content,
+    );
 };
 
 # load plugins
@@ -38,35 +75,3 @@ __PACKAGE__->load_plugin('Web::CSRFDefender');
 __PACKAGE__->enable_session();
 
 __PACKAGE__->to_app(handle_static => 1);
-
-__DATA__
-
-@@ index.tt
-<!doctype html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>BannerServer</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.0/jquery.min.js"></script>
-    <script type="text/javascript" src="[% uri_for('/static/js/main.js') %]"></script>
-    <link rel="stylesheet" href="http://twitter.github.com/bootstrap/1.4.0/bootstrap.min.css">
-    <link rel="stylesheet" href="[% uri_for('/static/css/main.css') %]">
-</head>
-<body>
-    <div class="container">
-        <header><h1>BannerServer</h1></header>
-        <section class="row">
-            This is a BannerServer
-        </section>
-        <footer>Powered by <a href="http://amon.64p.org/">Amon2::Lite</a></footer>
-    </div>
-</body>
-</html>
-
-@@ /static/js/main.js
-
-@@ /static/css/main.css
-footer {
-    text-align: right;
-}
