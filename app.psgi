@@ -6,6 +6,7 @@ use File::Basename;
 use lib File::Spec->catdir(dirname(__FILE__), 'extlib', 'lib', 'perl5');
 use lib File::Spec->catdir(dirname(__FILE__), 'lib');
 use Amon2::Lite;
+use JSON;
 use Path::Class;
 use Log::Minimal;
 $Log::Minimal::AUTODUMP = 1;
@@ -13,6 +14,7 @@ $Log::Minimal::AUTODUMP = 1;
 our $VERSION = '0.01';
 
 my $banner_dir = dir('/Users/delphinus/Dropbox/Documents/banner');
+my $hostname = 'img.remora.cx';
 my %cache;
 
 # put your configuration here
@@ -40,7 +42,9 @@ get '/get' => sub { my $c = shift;
         my @tmp;
         $banner_dir->recurse(callback => sub{
             my $f = shift;
-            push @tmp, $f if $f =~ qr/${w}_$h\.(?:gif|png)$/;
+            $f =~ qr/${w}_$h\.(?:gif|png)$/ or return;
+            my $path = $f->parent->file('url.txt')->slurp;
+            push @tmp, +{file => $f, path => $path};
         });
         $cache{$k} = \@tmp;
     }
@@ -49,6 +53,30 @@ get '/get' => sub { my $c = shift;
     return $c->res_404 unless @image_cache;
 
     my $image = @image_cache[rand @image_cache];
+    my $html = $c->create_view->render('img.tt', +{%$p,
+        hostname => $hostname,
+        basename => $image->{file}->basename,
+        path => $image->{path},
+    });
+    my $js = to_json(+{content => $html});
+
+    $js = "$p->{callback}($js);" if defined $p->{callback};
+
+    return $c->create_response(
+        200,
+        [
+            'Content-Type' => 'application/json',
+            'Content-Length' => length $js,
+        ],
+        $js,
+    );
+};
+
+get '/img/{name}' => sub { my ($c, $args) = @_;
+    my ($name, $w, $h) = $args->{name} =~ /([^_]+)_(\d+)_(\d+)/;
+    my $image = file($banner_dir, $name, $args->{name});
+    -f $image or return $c->res_404;
+
     my ($ext) = $image =~ /\.([^.]+)$/;
     my $content = do {
         my $fh = $image->openr;
@@ -70,8 +98,16 @@ get '/get' => sub { my $c = shift;
 __PACKAGE__->load_plugin('Web::CSRFDefender');
 # __PACKAGE__->load_plugin('DBI');
 # __PACKAGE__->load_plugin('Web::FillInFormLite');
-# __PACKAGE__->load_plugin('Web::JSON');
+__PACKAGE__->load_plugin('Web::JSON');
 
 __PACKAGE__->enable_session();
 
 __PACKAGE__->to_app(handle_static => 1);
+
+__DATA__
+@@ img.tt
+<a href="[% path %]">
+    <img width="[% w %]" height="[% h %]" src="http://[% hostname _ uri_for('/img/' _ basename) %]">
+</a>
+
+@@ vim:se ft=perl:
