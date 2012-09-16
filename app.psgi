@@ -17,21 +17,6 @@ my $banner_dir = dir('/Users/delphinus/Dropbox/Documents/banner');
 my $hostname = 'img.remora.cx';
 my %cache;
 
-# put your configuration here
-sub load_config {
-    my $c = shift;
-
-    my $mode = $c->mode_name || 'development';
-
-    +{
-        'DBI' => [
-            'dbi:SQLite:dbname=$mode.db',
-            '',
-            '',
-        ],
-    }
-}
-
 get '/get' => sub { my $c = shift;
     my $p = $c->req->parameters;
     my ($w, $h, $ts) = @$p{qw!w h ts!};
@@ -96,8 +81,6 @@ get '/img/{name}' => sub { my ($c, $args) = @_;
 
 # load plugins
 __PACKAGE__->load_plugin('Web::CSRFDefender');
-# __PACKAGE__->load_plugin('DBI');
-# __PACKAGE__->load_plugin('Web::FillInFormLite');
 __PACKAGE__->load_plugin('Web::JSON');
 
 __PACKAGE__->enable_session();
