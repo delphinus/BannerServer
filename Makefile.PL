@@ -11,6 +11,7 @@ WriteMakefile(
         'Plack::Session'                  => '0.14',
         'Pass::Class' => 0,
         'Log::Minimal' => 0,
+        'Cache::Memcached::Fast' => 0,
     },
     MIN_PERL_VERSION => '5.008001',
     (-d 'xt' and $ENV{AUTOMATED_TESTING} || $ENV{RELEASE_TESTING}) ? (
