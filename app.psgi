@@ -102,7 +102,7 @@ __PACKAGE__->to_app(handle_static => 1);
 
 __DATA__
 @@ img.tt
-<a href="[% path %]">
+<a target="_blank" href="[% path %]">
     <img width="[% w %]" height="[% h %]" src="http://[% hostname _ uri_for('/img/' _ basename) %]">
 </a>
 
