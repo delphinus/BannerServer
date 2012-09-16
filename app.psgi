@@ -6,6 +6,7 @@ use File::Basename;
 use lib File::Spec->catdir(dirname(__FILE__), 'extlib', 'lib', 'perl5');
 use lib File::Spec->catdir(dirname(__FILE__), 'lib');
 use Amon2::Lite;
+use Cache::Memcached::Fast;
 use JSON;
 use Path::Class;
 use Log::Minimal;
@@ -15,15 +16,21 @@ our $VERSION = '0.01';
 
 my $banner_dir = dir('/Users/delphinus/Dropbox/Documents/banner');
 my $hostname = 'img.remora.cx';
-my %cache;
+my $memd = Cache::Memcached::Fast->new({
+    servers => ['127.0.0.1:11211'],
+    namespace => 'bannerserver:',
+    utf8 => 1,
+});
 
 get '/get' => sub { my $c = shift;
     my $p = $c->req->parameters;
     my ($w, $h, $ts) = @$p{qw!w h ts!};
     return $c->res_404 unless $w && $h && $ts;
 
-    my $k = "$w-$h";
-    unless ($cache{$k}) {
+    my $key = "$w-$h";
+    my $cache = $memd->get($key);
+
+    unless ($cache) {
         my @tmp;
         $banner_dir->recurse(callback => sub{
             my $f = shift;
@@ -31,10 +38,11 @@ get '/get' => sub { my $c = shift;
             my $path = $f->parent->file('url.txt')->slurp;
             push @tmp, +{file => $f, path => $path};
         });
-        $cache{$k} = \@tmp;
+        $memd->set($key => \@tmp);
+        $cache = \@tmp;
     }
 
-    my @image_cache = @{$cache{$k}};
+    my @image_cache = @$cache;
     return $c->res_404 unless @image_cache;
 
     my $image = @image_cache[rand @image_cache];
@@ -60,14 +68,19 @@ get '/get' => sub { my $c = shift;
 get '/img/{name}' => sub { my ($c, $args) = @_;
     my ($name, $w, $h) = $args->{name} =~ /([^_]+)_(\d+)_(\d+)/;
     my $image = file($banner_dir, $name, $args->{name});
-    -f $image or return $c->res_404;
-
     my ($ext) = $image =~ /\.([^.]+)$/;
-    my $content = do {
-        my $fh = $image->openr;
-        $fh->binmode;
-        local $/; <$fh>;
-    };
+    my $key = $image->absolute->stringify;
+    my $content = $memd->get($key);
+
+    unless ($content) {
+        -f $image or return $c->res_404;
+        $content = do {
+            my $fh = $image->openr;
+            $fh->binmode;
+            local $/; <$fh>;
+        };
+        $memd->set($key => $content);
+    }
 
     return $c->create_response(
         200,
