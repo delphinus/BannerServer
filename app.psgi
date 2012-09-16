@@ -6,6 +6,7 @@ use File::Basename;
 use lib File::Spec->catdir(dirname(__FILE__), 'extlib', 'lib', 'perl5');
 use lib File::Spec->catdir(dirname(__FILE__), 'lib');
 use Amon2::Lite;
+use JSON;
 use Path::Class;
 use Log::Minimal;
 $Log::Minimal::AUTODUMP = 1;
@@ -57,8 +58,18 @@ get '/get' => sub { my $c = shift;
         basename => $image->{file}->basename,
         path => $image->{path},
     });
+    my $js = to_json(+{content => $html});
 
-    return $c->render_json(+{content => $html});
+    $js = "$p->{callback}($js);" if defined $p->{callback};
+
+    return $c->create_response(
+        200,
+        [
+            'Content-Type' => 'application/json',
+            'Content-Length' => length $js,
+        ],
+        $js,
+    );
 };
 
 get '/img/{name}' => sub { my ($c, $args) = @_;
