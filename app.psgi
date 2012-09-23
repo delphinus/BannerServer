@@ -53,12 +53,18 @@ get '/get' => sub { my $c = shift;
     });
     my $js = to_json(+{content => $html});
 
-    $js = "$p->{callback}($js);" if defined $p->{callback};
+    my $content_type;
+    if (defined $p->{callback}) {
+        $content_type = 'text/javascript';
+        $js = "$p->{callback}($js);";
+    } else {
+        $content_type = 'application/json';
+    }
 
     return $c->create_response(
         200,
         [
-            'Content-Type' => 'application/json',
+            'Content-Type' => $content_type,
             'Content-Length' => length $js,
         ],
         $js,
