@@ -14,7 +14,7 @@ $Log::Minimal::AUTODUMP = 1;
 
 our $VERSION = '0.01';
 
-my $banner_dir = dir('/Users/delphinus/Dropbox/Documents/banner');
+my $banner_dir = dir('/home/delphinus/Dropbox/Documents/banner');
 my $hostname = 'img.remora.cx';
 my $memd = Cache::Memcached::Fast->new({
     servers => ['127.0.0.1:11211'],
